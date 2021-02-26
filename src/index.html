@@ -3,15 +3,20 @@
   <head>
     <meta charset='utf-8' />
     <title>广告投屏设备模拟</title>
-    <!--    <script>-->
-    <!--      (() => {-->
-    <!--        const link = document.createElement('link');-->
-    <!--        link.rel = 'stylesheet';-->
-    <!--        link.href = './dist/style.css';-->
-    <!--        // HACK: Writing the script path should be done with webpack-->
-    <!--        document.getElementsByTagName('head')[0].appendChild(link);-->
-    <!--      })();-->
-    <!--    </script>-->
+    <script>
+      (() => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = './dist/style.css';
+        // HACK: Writing the script path should be done with webpack
+        document.getElementsByTagName('head')[0].appendChild(link);
+        const antdCss = document.createElement('link');
+        antdCss.rel = 'stylesheet';
+        antdCss.href = 'https://cdn.bootcdn.net/ajax/libs/antd/4.12.3/antd.css';
+        // HACK: Writing the script path should be done with webpack
+        document.getElementsByTagName('head')[0].appendChild(antdCss);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

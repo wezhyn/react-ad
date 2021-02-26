@@ -1,31 +1,54 @@
-import { Popover, Steps } from 'antd';
-import React from 'react';
-import 'antd/dist/antd.css';
+import { Steps } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
+import * as schedule from 'node-schedule';
 
 const { Step } = Steps;
 
-const customDot = (dot: React.ReactNode, { status, index }: any) => (
-  <Popover
-    content={
-      <span>
-        step {index} status: {status}
-      </span>
+
+interface ViewProps {
+  isEnd: boolean,
+  viewList: string[],
+}
+
+const View = (props: ViewProps) => {
+  const [viewPercent, setPercent] = useState(0);
+  let setPercentCallback: any = useRef();
+  const incr = () => {
+    setPercent(viewPercent + 1);
+    if (viewPercent >= 24) {
+      schedule.cancelJob('view-1');
     }
-  >
-    {dot}
-  </Popover>
-);
+  };
+  useEffect(() => {
+    setPercentCallback.current = incr;
+    return () => {
+    };
+  });
 
-export const View = () => {
+  useEffect(() => {
+    schedule.scheduleJob('view-1', '*/2 * * * * ? ', () => {
+      setPercentCallback.current();
+    });
+  }, []);
 
-  return (
-    <>
-      <Steps progressDot current={1}>
-        <Step title='Finished' description='This is a description.' />
-        <Step title='In Progress' description='This is a description.' />
-        <Step title='Waiting' description='This is a description.' />
-      </Steps>
-    </>
-  );
-
+  const stepRefs = [];
+  const stepsRefs = [];
+  for (let i = 1; i <= 5; i++) {
+    for (let j = 1; j <= 5; j++) {
+      let count = (i - 1) * 5 + j;
+      let ele = React.createElement(Step, {
+        // 'title': 'count',
+        'description': props.viewList[count],
+        'key': count
+      });
+      stepRefs.push(ele);
+    }
+    let ele = React.createElement(Steps, {
+      'progressDot': true,
+      'current': i * 5 <= viewPercent ? 4 : ((i - 1) * 5 <= viewPercent ? viewPercent % 5 : -1),
+      'key': i
+    }, stepRefs.slice((i - 1) * 5, 5 * i));
+    stepsRefs.push(ele);
+  }
+  return React.createElement('div', {}, stepsRefs);
 };

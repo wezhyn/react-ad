@@ -1,24 +1,44 @@
 import React from 'react';
 import { Button, Form, Input } from 'antd';
+import { RouteComponentProps, useHistory } from 'react-router-dom';
 
 const tailLayout = {
   wrapperCol: { offset: 8, span: 16 }
 };
 
-export function Setting() {
-  const onFinish = (values: any) => {
-    console.log('Success:', values);
-  };
+export interface SettingData {
+  ip: string;
+  port: string
+  imei: string
+}
 
+interface SettingProps extends RouteComponentProps<SettingData> {
+
+}
+
+export function Setting(props: SettingProps) {
+  let history = useHistory();
+  const [form] = Form.useForm();
+  const onFinish = (values: SettingData) => {
+    history.push('/view', values);
+  };
   const onFinishFailed = (errorInfo: any) => {
     console.log('Failed:', errorInfo);
   };
+  let transferData = props.location.state == null ? {
+    ip: '127.0.0.1',
+    port: '3333',
+    imei: '863987031739406'
+  } : props.location.state;
+
+  let { ip: defaultIp, port: defaultPort, imei: defaultImei } = transferData as SettingData;
   return (
     <Form
+      form={form}
       labelCol={{ span: 8 }}
       wrapperCol={{ span: 16 }}
       name='basic'
-      initialValues={{ remember: true, port: 3333, ip: '127.0.0.1' }}
+      initialValues={{ remember: true, port: defaultPort, ip: defaultIp, imei: defaultImei }}
       onFinish={onFinish}
       onFinishFailed={onFinishFailed}
     >
@@ -35,17 +55,22 @@ export function Setting() {
         name='port'
         rules={[{ required: true, message: '输入服务器连接端口' }]}
       >
-        <Input.Password />
+        <input />
       </Form.Item>
 
+      <Form.Item
+        label='Imei'
+        name='imei'
+        rules={[{ required: true, message: '输入模拟 IMEI[15位]', min: 15, max: 15 }]}
+      >
+        <input />
+      </Form.Item>
       {/*<Form.Item {...tailLayout} name="remember" valuePropName="checked">*/}
       {/*  <Checkbox>Remember me</Checkbox>*/}
       {/*</Form.Item>*/}
 
       <Form.Item {...tailLayout}>
-        <Button type='primary' htmlType='submit'>
-          连接
-        </Button>
+        <Button type='primary' htmlType='submit'>连接</Button>
       </Form.Item>
     </Form>
   );

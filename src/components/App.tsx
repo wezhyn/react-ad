@@ -1,17 +1,15 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
-import { View } from './view';
+import { Navigation } from './view';
+import { Setting } from './setting';
 
-const Hello = (props: any) => {
-  const { child } = props;
-  return <div>{child}</div>;
-};
 
 export default function App() {
   return (
     <Router>
       <Switch>
-        <Route path='/' component={View} />
+        <Route path='/view' component={Navigation} />
+        <Route path='/' component={Setting} />
       </Switch>
     </Router>
   );

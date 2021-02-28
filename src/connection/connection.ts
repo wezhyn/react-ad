@@ -24,7 +24,11 @@ export class Connection extends EventEmitter {
     this.client = net.connect(port, host, function() {
       console.log(`Connect to ${host}:${port}`);
     });
+    this.client.once('error', err => {
+      this.emit('error', err);
+    });
     this.client.setEncoding('ascii');
+    this.start();
   }
 
   start() {

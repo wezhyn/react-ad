@@ -67,11 +67,16 @@ export class LineBasedFrameDecoder extends InboundChannelHandler<Buffer, string>
   read(msg: Buffer): string | null {
     let msgStr = msg.toString('ascii');
     this.tmp += msgStr;
+    let splitIndex = this.tmp.indexOf(this.delimiter) + this.delimiter.length;
     let result = null;
-    let split = this.tmp.split(this.delimiter, 2);
-    if (split.length == 2) {
-      this.tmp = split[1];
-      result = split[0];
+    if (splitIndex < this.delimiter.length) {
+      result = null;
+    } else if (splitIndex < this.tmp.length) {
+      result = this.tmp.substring(0, splitIndex);
+      this.tmp = this.tmp.substring(splitIndex + 1);
+    } else if (splitIndex == this.tmp.length) {
+      result = this.tmp;
+      this.tmp = '';
     }
     return result;
   }
@@ -103,7 +108,7 @@ export class ProtocolFrameDecoder extends InboundChannelHandler<string, Frame<an
     }
 
     let frameLength = this.frameLength(msg, sofIndex + ProtocolFrameDecoder.BEGIN_FIELD.length, this.lenField);
-    if (frameLength <= 0 || !this.hasEOF(msg, sofIndex + frameLength - ProtocolFrameDecoder.END_FIELD.length)) {
+    if (frameLength <= 0 || !this.hasEOF(msg, sofIndex + frameLength - ProtocolFrameDecoder.END_FIELD.length - 2)) {
       return this.read(msg.substr(sofIndex + ProtocolFrameDecoder.BEGIN_FIELD.length));
     }
     try {
@@ -153,7 +158,8 @@ export class ProtocolFrameDecoder extends InboundChannelHandler<string, Frame<an
   }
 
   beginOf(param: string): number {
-    return param.indexOf(ProtocolFrameDecoder.BEGIN_FIELD);
+    let index = param.indexOf(ProtocolFrameDecoder.BEGIN_FIELD);
+    return index == -1 ? param.length : index;
   }
 
   acceptMessage(msg: any): boolean {

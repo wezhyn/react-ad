@@ -27,8 +27,8 @@ export function Setting(props: SettingProps) {
   };
   let transferData = props.location.state == null ? {
     ip: '127.0.0.1',
-    port: '3333',
-    imei: '863987031739406'
+    port: '8888',
+    imei: '000000000001000'
   } : props.location.state;
 
   let { ip: defaultIp, port: defaultPort, imei: defaultImei } = transferData as SettingData;

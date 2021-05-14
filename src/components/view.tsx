@@ -5,7 +5,7 @@ import * as schedule from 'node-schedule';
 import { SettingData } from './setting';
 import { RouteComponentProps, useHistory } from 'react-router-dom';
 import { Connection } from '../connection/connection';
-import { DataFrame, Frame, FrameType } from '../connection/define';
+import { CompletionFrame, DataFrame, Frame, FrameType } from '../connection/define';
 
 const { Step } = Steps;
 const { TabPane } = Tabs;
@@ -15,8 +15,12 @@ interface ViewTimeProps {
   // 距离开始的计数 ,每 5 分钟 +1
   timeCount: number,
   viewList: string[],
+  entryId: number,
+  iemi: string
 
 }
+
+const maxNum = 5;
 
 
 interface PaneProps extends RouteComponentProps<SettingData> {
@@ -31,19 +35,19 @@ export const Navigation = (props: PaneProps) => {
     const history = useHistory();
     const [panes, setPanes] = useState<ViewTimeProps[]>([]);
     const setPanesCallback: any = useRef();
-    let count = useRef(1);
+  let count = useRef(1);
+  let frameContainers: DataFrame[] = [];
 
 
-    const addPane = (listView: string[]) => {
-      if (listView.length > 0) {
-        if (listView.length < 25) {
-          listView.push(...Array(25 - listView.length).fill(''));
-        }
-        setPanes([...panes, { viewList: listView, timeCount: count.current } as ViewTimeProps]);
+  const addPane = (listView: string[], id: number, im: string) => {
+    if (listView.length > 0) {
+      if (listView.length < maxNum) {
+        listView.push(...Array(maxNum - listView.length).fill(''));
       }
-      count.current += 1;
-    };
-    let frameContainers: DataFrame[] = [];
+      setPanes([...panes, { viewList: listView, timeCount: count.current, entryId: id, iemi: im } as ViewTimeProps]);
+    }
+    count.current += 1;
+  };
 
     useEffect(() => {
       setPanesCallback.current = addPane;
@@ -65,7 +69,7 @@ export const Navigation = (props: PaneProps) => {
             case FrameType.Data: {
               let dataFrame = data as DataFrame;
               let repeatNum = dataFrame.data().repeatNum;
-              if (repeatNum > 25 || repeatNum <= 0) {
+              if (repeatNum > maxNum || repeatNum <= 0) {
                 console.log(`错误的参数：${JSON.stringify(dataFrame.data())}`);
               } else {
                 frameContainers.push(data as DataFrame);
@@ -79,23 +83,38 @@ export const Navigation = (props: PaneProps) => {
         });
       }
     }, []);
+
     // 创建定时任务
     useEffect(() => {
-      schedule.scheduleJob('navigation', '0 0/2 * * * ? ', () => {
+      schedule.scheduleJob('navigation', '0 0/1 * * * ? ', () => {
         let frequency = 0;
         let listView: string[] = [];
-        while (frequency <= 25 && frameContainers.length != 0) {
+        let entryId = null;
+        let iemi = null;
+        console.log(`数据渲染`);
+        while (frequency < maxNum && frameContainers.length != 0) {
           let ele = frameContainers[0];
           let entry = ele.data();
-          if (frequency + entry.repeatNum <= 25) {
-            frequency += entry.repeatNum;
-            listView.push(...Array(entry.repeatNum).fill(entry.content));
-          } else {
-            break;
+          if (entryId == null) {
+            entryId = entry.entryId;
           }
-          frameContainers.shift();
+          if (iemi == null) {
+            iemi = ele.equipmentImei();
+          }
+          let count = 0;
+          if (frequency + entry.repeatNum > maxNum) {
+            count = Math.min(maxNum - frequency, entry.repeatNum);
+          } else {
+            count = entry.repeatNum;
+          }
+          frameContainers[0].data().repeatNum -= count;
+          frequency += count;
+          if (entry.repeatNum <= 0) {
+            frameContainers.shift();
+          }
+          listView.push(...Array(count).fill(entry.content));
         }
-        setPanesCallback.current(listView);
+        setPanesCallback.current(listView, entryId, iemi);
       });
     }, []);
 
@@ -104,10 +123,10 @@ export const Navigation = (props: PaneProps) => {
         <Tabs defaultActiveKey='1'>
           {
             panes.map((v, i) => {
-              let tabTitle = `${(v.timeCount - 1) * 5 + 1}-${v.timeCount * 5} 时段`;
+              let tabTitle = `${v.timeCount} 时段`;
               return (
                 <TabPane tab={tabTitle} key={i}>
-                  <View viewList={v.viewList} timeCount={v.timeCount} />
+                  <View {...v} />
                 </TabPane>
               );
             })
@@ -124,8 +143,10 @@ export const View = (props: ViewTimeProps) => {
     let setPercentCallback: any = useRef();
     const incr = () => {
       setPercent(viewPercent + 1);
-      if (viewPercent >= 24) {
+      if (viewPercent >= maxNum - 1) {
         schedule.cancelJob('view-' + props.timeCount);
+        // 发送完成事件
+        con.writeFrame(new CompletionFrame(props.entryId, props.iemi));
       }
     };
     useEffect(() => {
@@ -135,7 +156,7 @@ export const View = (props: ViewTimeProps) => {
     });
 
     useEffect(() => {
-      schedule.scheduleJob('view-' + props.timeCount, '0/2 * * * * ? ', () => {
+      schedule.scheduleJob('view-' + props.timeCount, '0/12 * * * * ? ', () => {
         setPercentCallback.current();
       });
     }, []);
@@ -143,22 +164,20 @@ export const View = (props: ViewTimeProps) => {
     const stepRefs = [];
     const stepsRefs = [];
     for (let i = 1; i <= 5; i++) {
-      for (let j = 1; j <= 5; j++) {
-        let count = (i - 1) * 5 + j;
-        let ele = React.createElement(Step, {
-          // 'title': 'count',
-          'description': props.viewList[count] == '' ? '空' : props.viewList[count],
-          'key': count
-        });
-        stepRefs.push(ele);
-      }
-      let ele = React.createElement(Steps, {
-        'progressDot': true,
-        'current': i * 5 <= viewPercent ? 4 : ((i - 1) * 5 <= viewPercent ? viewPercent % 5 : -1),
-        'key': i
-      }, stepRefs.slice((i - 1) * 5, 5 * i));
-      stepsRefs.push(ele);
+      let count = i - 1;
+      let countEle = React.createElement(Step, {
+        // 'title': 'count',
+        'description': props.viewList[count] == '' ? '空' : props.viewList[count],
+        'key': count
+      });
+      stepRefs.push(countEle);
     }
+    let ele = React.createElement(Steps, {
+      'progressDot': true,
+      'current': viewPercent,
+      'key': 0
+    }, stepRefs);
+    stepsRefs.push(ele);
     return React.createElement('div', {}, stepsRefs);
   }
 ;

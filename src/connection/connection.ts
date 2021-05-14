@@ -13,7 +13,7 @@ export class Connection extends EventEmitter {
   private client: net.Socket;
 //创建一个TCP客户端实例
   private frameEncoder = new ProtocolFrameEncoder(0);
-  private lineDecoder = new LineBasedFrameDecoder(0, '\n');
+  private lineDecoder = new LineBasedFrameDecoder(0, 'EOF');
   private frameDecoder = new ProtocolFrameDecoder(1, 27, 4);
 
   constructor(host: string, port: number, imei: string) {
@@ -33,10 +33,14 @@ export class Connection extends EventEmitter {
 
   start() {
     this.client.on('data', data => {
-      let str = this.lineDecoder.read(data);
-      let frame = this.frameDecoder.read(str == null ? '' : str);
-      if (frame != null) {
-        this.emit(Connection.FRAME_EVENT, frame);
+      let d = data;
+      let str = null;
+      while ((str = this.lineDecoder.read(d)) != null) {
+        let frame = this.frameDecoder.read(str);
+        if (frame != null) {
+          this.emit(Connection.FRAME_EVENT, frame);
+        }
+        d = Buffer.from('');
       }
     });
 
@@ -46,7 +50,7 @@ export class Connection extends EventEmitter {
       console.log();
     });
     schedule.scheduleJob('0 0/1 * * * ? ', () => this.writeFrame(new HeartBeat(this.iemi)));
-    schedule.scheduleJob('0 0/2 * * * ? ', () => this.writeFrame(new GpsFrame(new Gps(3020.00001, 12000.00001), this.iemi)));
+    schedule.scheduleJob('0 0/1 * * * ? ', () => this.writeFrame(new GpsFrame(new Gps(3020.00001, 12000.00001), this.iemi)));
   }
 
   writeFrame(frame: Frame<any>) {

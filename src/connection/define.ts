@@ -136,6 +136,11 @@ export class CompletionFrame extends AbstractFrame<number> {
   constructor(entry: number, imei?: string) {
     super(entry, FrameType.Notification, imei);
   }
+
+  dataStr(): string {
+    let id = this.data().toString();
+    return id.padStart(4, '0');
+  }
 }
 
 export class SystemConfirmFrame extends AbstractFrame<void> implements SystemFrame {

@@ -15,7 +15,7 @@ interface ViewTimeProps {
   // 距离开始的计数 ,每 5 分钟 +1
   timeCount: number,
   viewList: string[],
-  entryId: number,
+  entryId: number[],
   iemi: string
 
 }
@@ -32,32 +32,37 @@ let isConnected = false;
 
 
 export const Navigation = (props: PaneProps) => {
-    const history = useHistory();
-    const [panes, setPanes] = useState<ViewTimeProps[]>([]);
-    const setPanesCallback: any = useRef();
+  const history = useHistory();
+  const [panes, setPanes] = useState<ViewTimeProps[]>([]);
+  const setPanesCallback: any = useRef();
   let count = useRef(1);
   let frameContainers: DataFrame[] = [];
 
 
-  const addPane = (listView: string[], id: number, im: string) => {
+  const addPane = (listView: string[], id: number[], im: string) => {
     if (listView.length > 0) {
       if (listView.length < maxNum) {
         listView.push(...Array(maxNum - listView.length).fill(''));
       }
-      setPanes([...panes, { viewList: listView, timeCount: count.current, entryId: id, iemi: im } as ViewTimeProps]);
+      setPanes([...panes, {
+        viewList: listView,
+        timeCount: Math.round(count.current / 12),
+        entryId: id,
+        iemi: im
+      } as ViewTimeProps]);
     }
     count.current += 1;
   };
 
-    useEffect(() => {
-      setPanesCallback.current = addPane;
-    }, [panes]);
+  useEffect(() => {
+    setPanesCallback.current = addPane;
+  }, [panes]);
 
-    // 创建连接
-    useEffect(() => {
-      if (!isConnected) {
-        let { ip, port, imei } = props.location.state as SettingData;
-        con = new Connection(ip, parseInt(port), imei);
+  // 创建连接
+  useEffect(() => {
+    if (!isConnected) {
+      let { ip, port, imei } = props.location.state as SettingData;
+      con = new Connection(ip, parseInt(port), imei);
         isConnected = true;
         con.once('error', err => {
           message.error(err.toString());
@@ -86,17 +91,16 @@ export const Navigation = (props: PaneProps) => {
 
     // 创建定时任务
     useEffect(() => {
-      schedule.scheduleJob('navigation', '0 0/1 * * * ? ', () => {
+      schedule.scheduleJob('navigation', '0/5 * * * * ? ', () => {
         let frequency = 0;
         let listView: string[] = [];
-        let entryId = null;
+        let idSet = new Set();
         let iemi = null;
-        console.log(`数据渲染`);
         while (frequency < maxNum && frameContainers.length != 0) {
           let ele = frameContainers[0];
           let entry = ele.data();
-          if (entryId == null) {
-            entryId = entry.entryId;
+          if (entry.entryId != null) {
+            idSet.add(entry.entryId);
           }
           if (iemi == null) {
             iemi = ele.equipmentImei();
@@ -114,7 +118,7 @@ export const Navigation = (props: PaneProps) => {
           }
           listView.push(...Array(count).fill(entry.content));
         }
-        setPanesCallback.current(listView, entryId, iemi);
+        setPanesCallback.current(listView, Array.from(idSet), iemi);
       });
     }, []);
 
@@ -143,10 +147,10 @@ export const View = (props: ViewTimeProps) => {
     let setPercentCallback: any = useRef();
     const incr = () => {
       setPercent(viewPercent + 1);
-      if (viewPercent >= maxNum - 1) {
+      if (viewPercent >= maxNum - 2) {
         schedule.cancelJob('view-' + props.timeCount);
         // 发送完成事件
-        con.writeFrame(new CompletionFrame(props.entryId, props.iemi));
+        props.entryId.forEach(id => con.writeFrame(new CompletionFrame(id, props.iemi)));
       }
     };
     useEffect(() => {

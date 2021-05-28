@@ -26,7 +26,7 @@ export function Setting(props: SettingProps) {
     console.log('Failed:', errorInfo);
   };
   let transferData = props.location.state == null ? {
-    ip: '127.0.0.1',
+    ip: 'wezhyn.izhaoo.com',
     port: '8888',
     imei: '000000000001000'
   } : props.location.state;
